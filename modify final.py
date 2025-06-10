@@ -1,37 +1,49 @@
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras import layers, models
 import json
-import os
 
-# === 檔案路徑設定 ===
-YOUR_MODEL_NAME = 'fashion_mnist'  # 不含副檔名
+# 設定檔案路徑
+YOUR_MODEL_NAME = 'fashion_mnist'
 TF_MODEL_PATH = f'{YOUR_MODEL_NAME}.h5'
 MODEL_WEIGHTS_PATH = f'{YOUR_MODEL_NAME}.npz'
 MODEL_ARCH_PATH = f'{YOUR_MODEL_NAME}.json'
 
-# === 確認模型檔存在 ===
-if not os.path.exists(TF_MODEL_PATH):
-    raise FileNotFoundError(f"找不到模型檔：{TF_MODEL_PATH}")
+# 載入資料
+(x_train, y_train), (x_test, y_test) = tf.keras.datasets.fashion_mnist.load_data()
+x_train = x_train.reshape(-1, 784).astype('float32') / 255.0
 
-# === 載入 Keras 模型並儲存權重與架構 ===
-model = tf.keras.models.load_model(TF_MODEL_PATH)
+# 建立模型
+model = models.Sequential([
+    layers.Input(shape=(784,)),
+    layers.Dense(256, activation='relu'),
+    layers.Dropout(0.3),
+    layers.Dense(128, activation='relu'),
+    layers.Dropout(0.3),
+    layers.Dense(64, activation='relu'),
+    layers.Dense(10, activation='softmax')
+])
 
-# 儲存原始 Keras 權重（結構化）
+# 編譯並訓練
+model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+model.fit(x_train, y_train, epochs=10, batch_size=128, validation_split=0.1)
+
+# 儲存 Keras 模型
+model.save(TF_MODEL_PATH)
+print(f"✅ 模型儲存於 {TF_MODEL_PATH}")
+
+# 提取並儲存權重
 params = {}
-print("🔍 提取模型權重...\n")
 for layer in model.layers:
     weights = layer.get_weights()
     if weights:
-        print(f"Layer: {layer.name}")
         for i, w in enumerate(weights):
             param_name = f"{layer.name}_{i}"
-            print(f"  {param_name}: shape={w.shape}")
             params[param_name] = w
-        print()
 np.savez(MODEL_WEIGHTS_PATH, **params)
-print(f"✅ 權重儲存至 {MODEL_WEIGHTS_PATH}")
+print(f"✅ 權重儲存於 {MODEL_WEIGHTS_PATH}")
 
-# 儲存架構為 JSON 格式
+# 儲存模型架構為 JSON
 arch = []
 for layer in model.layers:
     config = layer.get_config()
@@ -44,58 +56,4 @@ for layer in model.layers:
     arch.append(info)
 with open(MODEL_ARCH_PATH, "w") as f:
     json.dump(arch, f, indent=2)
-print(f"✅ 架構儲存至 {MODEL_ARCH_PATH}")
-
-# === NumPy 模型推論區 ===
-
-# 載入架構與權重
-weights = np.load(MODEL_WEIGHTS_PATH)
-with open(MODEL_ARCH_PATH) as f:
-    architecture = json.load(f)
-
-# 定義激活函數
-def relu(x):
-    return np.maximum(0, x)
-
-def softmax(x):
-    e = np.exp(x - np.max(x, axis=-1, keepdims=True))
-    return e / np.sum(e, axis=-1, keepdims=True)
-
-# Dense、Flatten 等函數
-def flatten(x):
-    return x.reshape(x.shape[0], -1)
-
-def dense(x, W, b):
-    return x @ W + b
-
-# 前向推論函數
-def forward(x):
-    for layer in architecture:
-        lname = layer['name']
-        ltype = layer['type']
-        cfg = layer['config']
-        wnames = layer['weights']
-
-        if ltype == "Flatten":
-            x = flatten(x)
-
-        elif ltype == "Dense":
-            W = weights[wnames[0]]
-            b = weights[wnames[1]]
-            x = dense(x, W, b)
-            if cfg.get("activation") == "relu":
-                x = relu(x)
-            elif cfg.get("activation") == "softmax":
-                x = softmax(x)
-
-    return x
-
-# === 測試輸入 ===
-# 模擬一筆 Fashion MNIST 圖片（28x28），已 Flatten
-dummy_input = np.random.rand(1, 28*28).astype(np.float32)
-
-# 前向傳播推論
-output = forward(dummy_input)
-
-print("\n🧠 模型輸出（機率分布）:", output)
-print("✅ 預測類別:", np.argmax(output, axis=-1))
+print(f"✅ 架構儲存於 {MODEL_ARCH_PATH}")

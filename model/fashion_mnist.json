@@ -30,14 +30,7 @@
         "config": {},
         "registered_name": null
       },
-      "kernel_regularizer": {
-        "module": "keras.regularizers",
-        "class_name": "L2",
-        "config": {
-          "l2": 0.0001
-        },
-        "registered_name": null
-      },
+      "kernel_regularizer": null,
       "bias_regularizer": null,
       "kernel_constraint": null,
       "bias_constraint": null
@@ -98,14 +91,7 @@
         "config": {},
         "registered_name": null
       },
-      "kernel_regularizer": {
-        "module": "keras.regularizers",
-        "class_name": "L2",
-        "config": {
-          "l2": 0.0001
-        },
-        "registered_name": null
-      },
+      "kernel_regularizer": null,
       "bias_regularizer": null,
       "kernel_constraint": null,
       "bias_constraint": null
